@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">CasersApp</string>
+    <string name="rationale_title">Camera access needed</string>
+    <string name="rationale_desc">The main functionality of this application requires a camera to work</string>
+    <string name="ok">Ok</string>
 </resources>

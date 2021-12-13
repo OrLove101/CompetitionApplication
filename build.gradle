@@ -1,12 +1,52 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
+    ext {
+        compile_sdk_version = 31
+        min_sdk_version = 23
+        target_sdk_version = 31
+
+        gson_converter_version = "2.9.0"
+        fragment_version = "1.4.0-alpha05"
+        glide_version = "4.12.0"
+        paging_version = "3.1.0"
+        navigation_version = "2.3.5"
+        room_version = "2.3.0"
+        hilt_version = "2.37"
+        lifecycle_version = "2.3.1"
+        gradle_version = "7.0.3"
+        kotlin_gradle_plugin_version = "1.5.20"
+        mlkit_version = "17.0.0"
+        image_cropper_version = "2.8.0"
+        core_version = "1.7.0"
+        appcompat_version = "1.4.0"
+        material_version = "1.4.0"
+        constraint_layout_version = "2.1.2"
+        junit_impl_version = "4.+"
+        junit_test_impl_version = "1.1.2"
+        android_junit_version = "1.8.0.0"
+        junit_version = "5.8.2"
+        spek_version = "2.0.17"
+        mockk_version = "1.12.1"
+        strikt_version = "0.33.0"
+        coroutines_test_version = "1.6.0-RC"
+        mockk_agent_jvm_version = "1.12.1"
+    }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:7.0.1"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.20"
+        classpath "com.android.tools.build:gradle:$rootProject.gradle_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$rootProject.kotlin_gradle_plugin_version"
+
+        //NAVIGATION
+        classpath "androidx.navigation:navigation-safe-args-gradle-plugin:$navigation_version"
+
+        //DAGGER_HILT
+        classpath "com.google.dagger:hilt-android-gradle-plugin:$hilt_version"
+
+        // JUNIT
+        classpath "de.mannodermaus.gradle.plugins:android-junit5:$android_junit_version"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
