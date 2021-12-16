@@ -6,6 +6,7 @@ plugins {
     id 'dagger.hilt.android.plugin'
     id 'androidx.navigation.safeargs.kotlin'
     id 'de.mannodermaus.android-junit5'
+    id 'com.google.gms.google-services'
 }
 
 android {
@@ -42,22 +43,22 @@ android {
         viewBinding true
     }
 
-//    sourceSets.each {
-//        it.java.srcDirs += "src/$it.name/kotlin"
-//    }
+    sourceSets.each {
+        it.java.srcDirs += "src/$it.name/kotlin"
+    }
 
-//    testOptions {
-//        junitPlatform {
-//            filters {
-//                engines {
-//                    include 'spek2'
-//                }
-//            }
-//        }
-//        unitTests.all {
-//            testLogging.events = ["passed", "skipped", "failed"]
-//        }
-//    }
+    testOptions {
+        junitPlatform {
+            filters {
+                engines {
+                    include 'spek2'
+                }
+            }
+        }
+        unitTests.all {
+            testLogging.events = ["passed", "skipped", "failed"]
+        }
+    }
 }
 
 dependencies {
@@ -108,6 +109,11 @@ dependencies {
 
     // CONSTRAINT LAYOUT
     implementation "androidx.constraintlayout:constraintlayout:$rootProject.constraint_layout_version"
+
+    // FIREBASE BoM
+    implementation platform("com.google.firebase:firebase-bom:$rootProject.firebase_bom_version")
+    // FIREBASE REALTIME DATABASE
+    implementation 'com.google.firebase:firebase-database-ktx'
 
     // TESTS
     testImplementation "org.junit.jupiter:junit-jupiter:$rootProject.junit_version"

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/waitingCarsFragment">
+
+    <fragment
+        android:id="@+id/waitingCarsFragment"
+        android:name="com.orlove101.android.casersapp.ui.fragments.WaitingCarsFragment"
+        android:label="WaitingCarsFragment" />
+    <fragment
+        android:id="@+id/parsedCarsFragment"
+        android:name="com.orlove101.android.casersapp.ui.fragments.ParsedCarsFragment"
+        android:label="ParsedCarsFragment" />
+</navigation>

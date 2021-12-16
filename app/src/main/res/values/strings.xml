@@ -3,4 +3,13 @@
     <string name="rationale_title">Camera access needed</string>
     <string name="rationale_desc">The main functionality of this application requires a camera to work</string>
     <string name="ok">Ok</string>
+    <string name="ready_from">READY FROM</string>
+    <string name="car_number">CAR NUMBER</string>
+    <string name="cargo_description">CARGO DESCRIPTION</string>
+    <string name="waiting_cars_bottombar_title">Waiting Cars</string>
+    <string name="parsed_cars_bottombar_title">Parsed Cars</string>
+    <string name="no_text_found">No text found</string>
+    <string name="some_text_fields_detected">Some text fields detected. Please retake and crop image to capture only one text field or type in manually</string>
+    <string name="let_the_car_go">LET THE CAR GO</string>
+    <string name="db_name">cars_db.db</string>
 </resources>

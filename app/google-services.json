@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "296487319919",
+    "project_id": "casersapp",
+    "storage_bucket": "casersapp.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:296487319919:android:949a4d9e1f630b8e52909a",
+        "android_client_info": {
+          "package_name": "com.orlove101.android.casersapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "296487319919-akpg5c6eqijo77t4fs3pg609kc65hukb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJ9mis5bLycU_icOPWHEsMe7ojoEaqpp4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "296487319919-akpg5c6eqijo77t4fs3pg609kc65hukb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

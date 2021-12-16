@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:id="@+id/waitingCarsFragment"
+        android:title="@string/waiting_cars_bottombar_title"
+        android:icon="@drawable/ic_waiting_cars" />
+
+    <item android:id="@+id/parsedCarsFragment"
+        android:title="@string/parsed_cars_bottombar_title"
+        android:icon="@drawable/ic_parsed_cars" />
+
+</menu>
