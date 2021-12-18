@@ -1,4 +1,4 @@
-package com.orlove101.android.casersapp.utils
+package com.orlove101.android.casersapp.utils.contracts
 
 import android.content.Context
 import android.content.Intent

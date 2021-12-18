@@ -12,4 +12,14 @@
     <string name="some_text_fields_detected">Some text fields detected. Please retake and crop image to capture only one text field or type in manually</string>
     <string name="let_the_car_go">LET THE CAR GO</string>
     <string name="db_name">cars_db.db</string>
+    <string name="dlete_car_snackbar_msg">Car successfully deleted</string>
+    <string name="delete_article_snackbar_action">undo</string>
+    <string name="article_saved_snackbar_msg">Car saved successfully</string>
+    <string name="car_is_parsed">Parsed</string>
+    <string name="not_supported">Not supported</string>
+    <string name="car_number_template">Car number: %1$s</string>
+    <string name="car_stop_waiting_template">Parsed at: %1$s</string>
+    <string name="car_start_waiting_template">Ready from: %1$s</string>
+    <string name="search_by_car_number">Search by car number...</string>
+
 </resources>
