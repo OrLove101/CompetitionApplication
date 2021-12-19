@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.*
 import com.bumptech.glide.Glide
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.ktx.getValue
@@ -14,25 +13,17 @@ import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.orlove101.android.casersapp.R
-import com.orlove101.android.casersapp.data.repository.CarsRepositoryImpl
-import com.orlove101.android.casersapp.domain.models.CarDomain
-import com.orlove101.android.casersapp.domain.usecases.SetUpWaitingCarsParam
-import com.orlove101.android.casersapp.domain.usecases.WaitingCarsUseCases
-import com.orlove101.android.casersapp.utils.QUERY_PAGE_SIZE
+import com.orlove101.android.casersapp.domain.models.*
+import com.orlove101.android.casersapp.domain.usecases.*
 import com.orlove101.android.casersapp.utils.Resource
 import com.orlove101.android.casersapp.utils.filterByCarNumber
-import com.orlove101.android.casersapp.utils.works.SyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltViewModel
 class WaitingCarsViewModel @Inject constructor(
-    // TODO refactor with usecases with repo inside them
-    val repositoryImpl: CarsRepositoryImpl,
-    // TODO -----------------
     private val waitingCarsUseCases: WaitingCarsUseCases
 ): ViewModel() {
 
@@ -45,8 +36,8 @@ class WaitingCarsViewModel @Inject constructor(
     val query: StateFlow<String> = _query.asStateFlow()
     private var fromNodeId: String? = null
 
-    private var _plombNumber: MutableStateFlow<Resource<String>> = MutableStateFlow(Resource.Loading())
-    val plombNumber = _plombNumber.asStateFlow()
+    private var _plomb: MutableStateFlow<Resource<String>> = MutableStateFlow(Resource.Loading())
+    val plomb = _plomb.asStateFlow()
 
     var currentCar: CarDomain? = null
     var currentCarPlombsParsed = 0
@@ -60,34 +51,23 @@ class WaitingCarsViewModel @Inject constructor(
             context = context
         )
         waitingCarsUseCases.setUpWaitingCarsSyncUseCase(param)
-        //
-//        val syncConstraint = Constraints.Builder()
-//            .setRequiredNetworkType(NetworkType.CONNECTED)
-//            .build()
-//        val syncWorkRequest = PeriodicWorkRequest.Builder(
-//            SyncWorker::class.java,
-//            16,
-//            TimeUnit.MINUTES
-//        )
-//            .setConstraints(syncConstraint)
-//            .build()
-//
-//        WorkManager.getInstance(context).enqueue(syncWorkRequest)
-        //
     }
 
     fun searchWaitingCars(isNewQuery: Boolean = false) {
         _cars.value = Resource.Loading()
         if (isNewQuery) fromNodeId = null
-        repositoryImpl.searchForWaitingCars(
-            carsPerPage = QUERY_PAGE_SIZE,
-            fromNodeId = fromNodeId,
+
+        val param = SearchWaitingCarsParam(
             countCarsInApi = ::setCarsInApiQuantity,
+            fromNodeId = fromNodeId,
             onDataChanged = ::handleCarsApiResponse
         )
+        waitingCarsUseCases.searchWaitingCarsUseCase(param = param)
     }
 
-    private fun handleCarsApiResponse(snapshot: DataSnapshot) {
+    private fun handleCarsApiResponse(
+        snapshot: DataSnapshot
+    ) {
         var response: List<CarDomain>? = null
 
         if (fromNodeId.isNullOrBlank()) carsResponse = ArrayList()
@@ -143,19 +123,24 @@ class WaitingCarsViewModel @Inject constructor(
         val blocks = texts.textBlocks
 
         if (blocks.size == 0 || blocks.size > 1) {
-            _plombNumber.value = Resource.Error(context.getString(R.string.validation_error))
+            _plomb.value = Resource.Error(context.getString(R.string.validation_error))
             return
         }
         processPlombNumber(texts.text, context)
     }
 
     private fun saveCar(car: CarDomain) = viewModelScope.launch {
-        repositoryImpl.upsert(car)
-        repositoryImpl.refreshPageSource()
+        val param = SaveWaitingCarParam(
+            car = car
+        )
+        waitingCarsUseCases.saveWaitingCarUseCase(param = param)
     }
 
     private fun deleteCarFromApi(car: CarDomain) {
-        repositoryImpl.deleteCarFromApi(car)
+        val param = DeleteCarFromApiParam(
+            car = car
+        )
+        waitingCarsUseCases.deleteCarFromApiUseCase(param = param)
     }
 
     fun processPlombNumber(plombNumber: String, context: Context) {
@@ -179,9 +164,9 @@ class WaitingCarsViewModel @Inject constructor(
                     currentCar?.plombQuantity
                 )
             }
-            _plombNumber.value = Resource.Success(plombInfo)
+            _plomb.value = Resource.Success(plombInfo)
         } else {
-            _plombNumber.value = Resource.Error(context.getString(R.string.validation_error))
+            _plomb.value = Resource.Error(context.getString(R.string.validation_error))
         }
     }
 

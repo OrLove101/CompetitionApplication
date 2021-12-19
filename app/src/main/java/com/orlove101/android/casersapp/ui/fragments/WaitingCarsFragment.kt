@@ -20,7 +20,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import com.orlove101.android.casersapp.R
 import com.orlove101.android.casersapp.databinding.FragmentWaitingCarsBinding
-import com.orlove101.android.casersapp.domain.models.CarDomain
 import com.orlove101.android.casersapp.ui.adapters.WaitingCarsAdapter
 import com.orlove101.android.casersapp.ui.viewmodels.WaitingCarsViewModel
 import com.orlove101.android.casersapp.utils.*
@@ -28,16 +27,8 @@ import com.orlove101.android.casersapp.utils.contracts.CropImageContract
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
-import android.content.DialogInterface
-
-import android.text.Editable
-
-import dagger.hilt.android.qualifiers.ActivityContext
 
 import android.widget.EditText
-
-
-
 
 @AndroidEntryPoint
 class WaitingCarsFragment: Fragment() {
@@ -76,7 +67,7 @@ class WaitingCarsFragment: Fragment() {
         setupSearch()
 
         lifecycleScope.launchWhenStarted {
-            viewModel.plombNumber.collect { response ->
+            viewModel.plomb.collect { response ->
                 when (response) {
                     is Resource.Error -> {
                         response.message?.let { message ->
@@ -256,9 +247,6 @@ class WaitingCarsFragment: Fragment() {
             .apply {
                 setAction(getString(R.string.type_in_manually)) {
                     showTypeInPlombNumberDialog()
-                }
-                setAction(getString(R.string.retry)) {
-                    cropResultLauncher.launch(MIMETYPE_IMAGES)
                 }
                 show()
             }

@@ -1,4 +1,4 @@
-package com.orlove101.android.casersapp.domain.usecases
+package com.orlove101.android.casersapp.domain.models
 
 import android.content.Context
 
