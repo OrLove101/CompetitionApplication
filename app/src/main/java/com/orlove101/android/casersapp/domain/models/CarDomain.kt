@@ -1,6 +1,5 @@
 package com.orlove101.android.casersapp.domain.models
 
-import androidx.room.PrimaryKey
 import java.io.Serializable
 import java.text.SimpleDateFormat
 import java.util.*

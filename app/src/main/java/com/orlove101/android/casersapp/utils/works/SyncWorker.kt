@@ -10,6 +10,7 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
+import com.orlove101.android.casersapp.utils.FIREBASE_DB_REF
 import com.orlove101.android.casersapp.utils.SYNC_DATA_SIZE
 import java.util.concurrent.CountDownLatch
 
@@ -19,7 +20,7 @@ class SyncWorker(
 ): Worker(appContext, workerParams) {
 
     override fun doWork(): Result {
-        val database = Firebase.database("https://casersapp-default-rtdb.europe-west1.firebasedatabase.app/")
+        val database = Firebase.database(FIREBASE_DB_REF)
         val latch = CountDownLatch(2)
 
         try {

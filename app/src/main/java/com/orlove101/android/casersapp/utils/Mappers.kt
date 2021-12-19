@@ -30,7 +30,6 @@ fun CarDomain.mapToDbCar(): CarDb {
         uuid = this.uuid,
         carNumber = this.carNumber,
         startWaitingAt = this.startWaitingAt,
-        stopWaitingAt = this.stopWaitingAt,
         cargoDescription = this.cargoDescription,
         plombQuantity = this.plombQuantity,
         waiting = this.waiting

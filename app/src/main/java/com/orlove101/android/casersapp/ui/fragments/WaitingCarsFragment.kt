@@ -17,19 +17,27 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.work.*
+import com.google.android.material.snackbar.Snackbar
 import com.orlove101.android.casersapp.R
-import com.orlove101.android.casersapp.data.repository.CarsRepositoryImpl
 import com.orlove101.android.casersapp.databinding.FragmentWaitingCarsBinding
+import com.orlove101.android.casersapp.domain.models.CarDomain
 import com.orlove101.android.casersapp.ui.adapters.WaitingCarsAdapter
 import com.orlove101.android.casersapp.ui.viewmodels.WaitingCarsViewModel
 import com.orlove101.android.casersapp.utils.*
 import com.orlove101.android.casersapp.utils.contracts.CropImageContract
-import com.orlove101.android.casersapp.utils.works.SyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
-import java.util.concurrent.TimeUnit
+import android.content.DialogInterface
+
+import android.text.Editable
+
+import dagger.hilt.android.qualifiers.ActivityContext
+
+import android.widget.EditText
+
+
+
 
 @AndroidEntryPoint
 class WaitingCarsFragment: Fragment() {
@@ -68,12 +76,40 @@ class WaitingCarsFragment: Fragment() {
         setupSearch()
 
         lifecycleScope.launchWhenStarted {
+            viewModel.plombNumber.collect { response ->
+                when (response) {
+                    is Resource.Error -> {
+                        response.message?.let { message ->
+                            showSnackbarOnParsingFail(message)
+                        }
+                    }
+                    is Resource.Success -> {
+                        response.data?.let { message ->
+                            if (viewModel.allPlombParsed()) {
+                                carsAdapter.differ.apply {
+                                    val newList = ArrayList(this.currentList)
+
+                                    newList.remove(viewModel.currentCar)
+                                    submitList(newList)
+                                }
+                                showToast(message)
+                            } else {
+                                showToast(message)
+                                cropResultLauncher.launch(MIMETYPE_IMAGES)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        lifecycleScope.launchWhenStarted {
             viewModel.cars.collect { response ->
                 when (response) {
                     is Resource.Error -> {
                         hideProgressBar()
                         response.message?.let { message ->
-                            Log.e(TAG, "An error occurred: $message")
+                            Log.e(TAG, getString(R.string.an_error_occured) + message)
                         }
                     }
                     is Resource.Loading -> {
@@ -99,7 +135,16 @@ class WaitingCarsFragment: Fragment() {
             }
         }
 
-        carsEventHandler()
+        carsAdapter.setOnLetCarGoButtonClickListener { car ->
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                viewModel.startParseNewCar(car)
+                cropResultLauncher.launch(MIMETYPE_IMAGES)
+            } else {
+                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
 
         return binding.root
     }
@@ -165,19 +210,6 @@ class WaitingCarsFragment: Fragment() {
         }
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        binding.root.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED
-            ) {
-                cropResultLauncher.launch(MIMETYPE_IMAGES)
-            } else {
-                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
-            }
-        }
-    }
-
     private fun showRationalDialog(
         title: String,
         message: String,
@@ -193,22 +225,43 @@ class WaitingCarsFragment: Fragment() {
         builder.create().show()
     }
 
-    private fun carsEventHandler() {
-        viewLifecycleOwner.lifecycleScope.launchWhenStarted {
-            viewModel.carsEvent.collect { event ->
-                when (event) {
-                    is WaitingCarsViewModel.WaitingCarsEvents.ShowToast -> {
-                        val text = event.text ?: event.textId?.let { getString(it) } ?: ""
+    private fun showTypeInPlombNumberDialog() {
+        val alert = AlertDialog.Builder(requireContext())
+        val edittext = EditText(requireContext())
 
-                        showToast(text)
-                    }
-                }
-            }
+        alert.setMessage(getString(R.string.type_in_plomb_num_msg))
+        alert.setTitle(getString(R.string.type_in_plomb_num_title))
+        alert.setView(edittext)
+        alert.setPositiveButton(
+            getString(R.string.type_in_lomb_confirm)
+        ) { _, _ ->
+            val enteredPlombNumber = edittext.text.toString()
+
+            viewModel.processPlombNumber(enteredPlombNumber, requireContext())
         }
+        alert.setNegativeButton(
+            getString(R.string.deny_type_in_plomb)
+        ) { _, _ ->
+            // do nothing
+        }
+        alert.show()
     }
 
     private fun showToast(message: String) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showSnackbarOnParsingFail(message: String) {
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
+            .apply {
+                setAction(getString(R.string.type_in_manually)) {
+                    showTypeInPlombNumberDialog()
+                }
+                setAction(getString(R.string.retry)) {
+                    cropResultLauncher.launch(MIMETYPE_IMAGES)
+                }
+                show()
+            }
     }
 }
 

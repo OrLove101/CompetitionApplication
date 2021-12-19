@@ -42,8 +42,9 @@ class WaitingCarsAdapter(
                     tvCarNumber.text = context.getString(R.string.car_number_template, item.carNumber)
                     tvCargoDescription.text = item.cargoDescription
                     tvReadyFrom.text = context.getString(R.string.car_start_waiting_template, item.startWaitingAt)
-                    root.setOnClickListener {
-                        onItemClickListener?.let {
+                    tvPlombQnt.text = context.getString(R.string.plomb_quantity, item.plombQuantity)
+                    bnLetCarGo.setOnClickListener {
+                        onLetCarGoClickListener?.let {
                             it(item)
                         }
                     }
@@ -64,10 +65,10 @@ class WaitingCarsAdapter(
 
     val differ = AsyncListDiffer(this, differCallback)
 
-    private var onItemClickListener: ((CarDomain) -> Unit)? = null
+    private var onLetCarGoClickListener: ((CarDomain) -> Unit)? = null
 
-    fun setOnItemClickListener(listener: (CarDomain) -> Unit) {
-        onItemClickListener = listener
+    fun setOnLetCarGoButtonClickListener(listener: (CarDomain) -> Unit) {
+        onLetCarGoClickListener = listener
     }
 }
 

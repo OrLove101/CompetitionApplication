@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
@@ -19,7 +20,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
-        android:text="@string/ready_from"
+        tools:text="@string/ready_from"
         android:textColor="?attr/textColor"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -33,7 +34,7 @@
         android:layout_marginStart="8dp"
         android:ellipsize="end"
         android:maxLines="3"
-        android:text="@string/car_number"
+        tools:text="@string/car_number"
         android:textColor="?attr/textColor"
         android:textSize="15sp"
         android:textStyle="bold"
@@ -49,10 +50,22 @@
         android:layout_marginTop="16dp"
         android:ellipsize="end"
         android:maxLines="5"
-        android:text="@string/cargo_description"
+        tools:text="@string/cargo_description"
         android:textColor="?attr/textColor"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/bnLetCarGo"
         app:layout_constraintTop_toBottomOf="@+id/tvCarNumber" />
+
+    <TextView
+        android:id="@+id/tvPlombQnt"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:textColor="?attr/textColor"
+        tools:text="@string/plomb_quantity"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/bnLetCarGo"
+        app:layout_constraintTop_toBottomOf="@+id/tvCargoDescription" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

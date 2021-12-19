@@ -7,13 +7,10 @@ import androidx.paging.cachedIn
 import com.orlove101.android.casersapp.R
 import com.orlove101.android.casersapp.data.repository.CarsRepositoryImpl
 import com.orlove101.android.casersapp.domain.models.CarDomain
-import com.orlove101.android.casersapp.utils.getRandomCarNumber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
 import javax.inject.Inject
 
 @HiltViewModel

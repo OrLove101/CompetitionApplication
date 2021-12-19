@@ -11,54 +11,77 @@ import com.google.firebase.ktx.Firebase
 import com.orlove101.android.casersapp.data.db.CarsDatabase
 import com.orlove101.android.casersapp.data.page_sources.ParsedCarsPageSource
 import com.orlove101.android.casersapp.domain.models.CarDomain
+import com.orlove101.android.casersapp.domain.repository.CarsRepository
+import com.orlove101.android.casersapp.utils.FIREBASE_DB_REF
 import com.orlove101.android.casersapp.utils.PREFETCH_DISTANCE
 import com.orlove101.android.casersapp.utils.QUERY_PAGE_SIZE
-import com.orlove101.android.casersapp.utils.getRandomCarNumber
 import com.orlove101.android.casersapp.utils.mapToDbCar
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.random.Random
 
 @Singleton
 class CarsRepositoryImpl @Inject constructor(
-    private val db: CarsDatabase,
-) {
-    private val database = Firebase.database("https://casersapp-default-rtdb.europe-west1.firebasedatabase.app/")
+    private val roomDatabase: CarsDatabase,
+): CarsRepository {
+    private val firebaseDatabase = Firebase.database(FIREBASE_DB_REF)
     private var currentParsedCarsDataSource: ParsedCarsPageSource? = null
 
     init {
-        database.setPersistenceEnabled(true)
+        firebaseDatabase.setPersistenceEnabled(true)
     }
 
-    fun refreshPageSource() {
+    override fun refreshPageSource() {
         currentParsedCarsDataSource?.invalidate()
     }
 
-    suspend fun upsert(car: CarDomain): Long =
-        db.getCarsDao().upsert(car.mapToDbCar())
+    override suspend fun upsert(car: CarDomain): Long =
+        roomDatabase.getCarsDao().upsert(car.mapToDbCar())
 
-    suspend fun deleteCar(car: CarDomain) =
-        db.getCarsDao().deleteCar(car.mapToDbCar())
+    override suspend fun deleteCar(car: CarDomain) =
+        roomDatabase.getCarsDao().deleteCar(car.mapToDbCar())
 
-    fun getParsedCars() = Pager<Int, CarDomain>(
+    override fun getParsedCars() = Pager<Int, CarDomain>(
         PagingConfig(
             pageSize = QUERY_PAGE_SIZE,
             initialLoadSize = QUERY_PAGE_SIZE,
             prefetchDistance = PREFETCH_DISTANCE
         )
     ) {
-        ParsedCarsPageSource(db = db).also {
+        ParsedCarsPageSource(db = roomDatabase).also {
             currentParsedCarsDataSource = it
         }
     }.flow
 
-    fun searchForWaitingCars(
+    override fun deleteCarFromApi(car: CarDomain) {
+        firebaseDatabase
+            .getReference("cars")
+            .orderByChild("uuid")
+            .equalTo(car.uuid)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    snapshot.children.forEach { dataSnapshot ->
+                        dataSnapshot.key?.let { valueKey ->
+                                firebaseDatabase
+                                    .getReference("cars")
+                                    .child(valueKey)
+                                    .removeValue()
+                        }
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w(TAG, "waitingCars:onCancelled", error.toException())
+                }
+            })
+    }
+
+    override fun searchForWaitingCars(
         fromNodeId: String?,
-        carsPerPage: Int = QUERY_PAGE_SIZE,
+        carsPerPage: Int,
         countCarsInApi: (Long) -> Unit,
         onDataChanged: (DataSnapshot) -> Unit
     ) {
-        val carsRef = database.getReference("cars")
+        val carsRef = firebaseDatabase.getReference("cars")
         val searchRef = fromNodeId?.let { carsRef.orderByKey().startAfter(it) } ?: carsRef
         val countWaitingRef = carsRef.orderByChild("waiting").equalTo(true)
 

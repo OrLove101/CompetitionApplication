@@ -7,7 +7,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.*
 import com.bumptech.glide.Glide
-import com.google.android.gms.tasks.Tasks
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.ktx.getValue
 import com.google.mlkit.vision.common.InputImage
@@ -17,13 +16,14 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.orlove101.android.casersapp.R
 import com.orlove101.android.casersapp.data.repository.CarsRepositoryImpl
 import com.orlove101.android.casersapp.domain.models.CarDomain
+import com.orlove101.android.casersapp.domain.usecases.SetUpWaitingCarsParam
+import com.orlove101.android.casersapp.domain.usecases.WaitingCarsUseCases
 import com.orlove101.android.casersapp.utils.QUERY_PAGE_SIZE
 import com.orlove101.android.casersapp.utils.Resource
 import com.orlove101.android.casersapp.utils.filterByCarNumber
 import com.orlove101.android.casersapp.utils.works.SyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -31,14 +31,10 @@ import javax.inject.Inject
 @HiltViewModel
 class WaitingCarsViewModel @Inject constructor(
     // TODO refactor with usecases with repo inside them
-    val repositoryImpl: CarsRepositoryImpl
+    val repositoryImpl: CarsRepositoryImpl,
     // TODO -----------------
+    private val waitingCarsUseCases: WaitingCarsUseCases
 ): ViewModel() {
-
-
-
-    private val carsEventsChannel = Channel<WaitingCarsEvents>()
-    val carsEvent = carsEventsChannel.receiveAsFlow()
 
     private var carsResponse = ArrayList<CarDomain>()
     private val _cars: MutableStateFlow<Resource<List<CarDomain>>> = MutableStateFlow(Resource.Loading())
@@ -49,23 +45,35 @@ class WaitingCarsViewModel @Inject constructor(
     val query: StateFlow<String> = _query.asStateFlow()
     private var fromNodeId: String? = null
 
+    private var _plombNumber: MutableStateFlow<Resource<String>> = MutableStateFlow(Resource.Loading())
+    val plombNumber = _plombNumber.asStateFlow()
+
+    var currentCar: CarDomain? = null
+    var currentCarPlombsParsed = 0
+
     init {
         searchWaitingCars(isNewQuery = true)
     }
 
     fun setUpWaitingCarsSync(context: Context) {
-        val syncConstraint = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-        val syncWorkRequest = PeriodicWorkRequest.Builder(
-            SyncWorker::class.java,
-            16,
-            TimeUnit.MINUTES
+        val param = SetUpWaitingCarsParam(
+            context = context
         )
-            .setConstraints(syncConstraint)
-            .build()
-
-        WorkManager.getInstance(context).enqueue(syncWorkRequest)
+        waitingCarsUseCases.setUpWaitingCarsSyncUseCase(param)
+        //
+//        val syncConstraint = Constraints.Builder()
+//            .setRequiredNetworkType(NetworkType.CONNECTED)
+//            .build()
+//        val syncWorkRequest = PeriodicWorkRequest.Builder(
+//            SyncWorker::class.java,
+//            16,
+//            TimeUnit.MINUTES
+//        )
+//            .setConstraints(syncConstraint)
+//            .build()
+//
+//        WorkManager.getInstance(context).enqueue(syncWorkRequest)
+        //
     }
 
     fun searchWaitingCars(isNewQuery: Boolean = false) {
@@ -107,7 +115,7 @@ class WaitingCarsViewModel @Inject constructor(
                     .submit()
                     .get()
 
-                getTextFromImage(imageBitmap)
+                getTextFromImage(imageBitmap, context)
             }
         }
     }
@@ -116,14 +124,14 @@ class WaitingCarsViewModel @Inject constructor(
         _query.tryEmit(query)
     }
 
-    private suspend fun getTextFromImage(imageBitmap: Bitmap) {
+    private fun getTextFromImage(imageBitmap: Bitmap, context: Context) {
         val image = InputImage.fromBitmap(imageBitmap, 0)
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
         recognizer.process(image)
             .addOnSuccessListener { text ->
                 viewModelScope.launch {
-                    processTextRecognitionResult(text)
+                    processTextRecognitionResult(text, context)
                 }
             }
             .addOnFailureListener { error ->
@@ -131,35 +139,62 @@ class WaitingCarsViewModel @Inject constructor(
             }
     }
 
-    private suspend fun processTextRecognitionResult(texts: Text) {
+    private fun processTextRecognitionResult(texts: Text, context: Context) {
         val blocks = texts.textBlocks
 
-        if (blocks.size == 0) {
-            carsEventsChannel.send(
-                WaitingCarsEvents.ShowToast(
-                    textId = R.string.no_text_found
-                )
-            )
+        if (blocks.size == 0 || blocks.size > 1) {
+            _plombNumber.value = Resource.Error(context.getString(R.string.validation_error))
             return
         }
-        if (blocks.size > 1) {
-            carsEventsChannel.send(
-                WaitingCarsEvents.ShowToast(
-                    textId = R.string.some_text_fields_detected
-                )
-            )
-            return
-        }
-        carsEventsChannel.send(
-            WaitingCarsEvents.ShowToast(
-                text = texts.text
-            )
-        )
+        processPlombNumber(texts.text, context)
     }
 
-    sealed class WaitingCarsEvents {
-        data class ShowToast(val textId: Int? = null, val text: String? = null): WaitingCarsEvents()
+    private fun saveCar(car: CarDomain) = viewModelScope.launch {
+        repositoryImpl.upsert(car)
+        repositoryImpl.refreshPageSource()
+    }
+
+    private fun deleteCarFromApi(car: CarDomain) {
+        repositoryImpl.deleteCarFromApi(car)
+    }
+
+    fun processPlombNumber(plombNumber: String, context: Context) {
+        val regexPlombCondition = Regex("^[A-Za-z][0-9]{8}\$")
+        val isValidPlombNumber = regexPlombCondition.matches(plombNumber)
+
+        if (isValidPlombNumber) {
+            var plombInfo = ""
+
+            plombSuccessfullyParsed()
+            if (allPlombParsed()) {
+                currentCar?.let { car ->
+                    saveCar(car)
+                    deleteCarFromApi(car)
+                }
+                plombInfo = context.getString(R.string.all_plomb_parsed_toast)
+            } else {
+                plombInfo = context.getString(
+                    R.string.some_plombs_parsed,
+                    currentCarPlombsParsed,
+                    currentCar?.plombQuantity
+                )
+            }
+            _plombNumber.value = Resource.Success(plombInfo)
+        } else {
+            _plombNumber.value = Resource.Error(context.getString(R.string.validation_error))
+        }
+    }
+
+    fun startParseNewCar(car: CarDomain) {
+        currentCar = car
+        currentCarPlombsParsed = 0
+    }
+
+    fun allPlombParsed(): Boolean {
+        return currentCarPlombsParsed == currentCar?.plombQuantity
+    }
+
+    private fun plombSuccessfullyParsed() {
+        currentCarPlombsParsed++
     }
 }
-
-private const val TAG = "WaitingCarsViewModel"

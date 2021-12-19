@@ -5,3 +5,4 @@ const val QUERY_PAGE_SIZE = 20
 const val SEARCH_NEWS_TIME_DELAY = 500L
 const val PREFETCH_DISTANCE = 1
 const val SYNC_DATA_SIZE = 50
+const val FIREBASE_DB_REF = "https://casersapp-default-rtdb.europe-west1.firebasedatabase.app/"

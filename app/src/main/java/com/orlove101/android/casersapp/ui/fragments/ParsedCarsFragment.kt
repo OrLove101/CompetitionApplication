@@ -68,9 +68,9 @@ class ParsedCarsFragment: Fragment() {
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.adapterPosition
-                val article = carsAdapter.snapshot()[position]
+                val car = carsAdapter.snapshot()[position]
 
-                article?.let { viewModel.deleteCar(it) }
+                car?.let { viewModel.deleteCar(it) }
             }
         }
     }
