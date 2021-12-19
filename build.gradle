@@ -31,6 +31,7 @@ buildscript {
         strikt_version = "0.33.0"
         coroutines_test_version = "1.6.0-RC"
         mockk_agent_jvm_version = "1.12.1"
+        work_manager_version = "2.7.1"
     }
     repositories {
         google()

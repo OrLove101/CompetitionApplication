@@ -8,55 +8,105 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
-import com.orlove101.android.casersapp.data.api.CarsApi
 import com.orlove101.android.casersapp.data.db.CarsDatabase
-import com.orlove101.android.casersapp.data.models.Car
+import com.orlove101.android.casersapp.data.page_sources.ParsedCarsPageSource
+import com.orlove101.android.casersapp.domain.models.CarDomain
+import com.orlove101.android.casersapp.domain.repository.CarsRepository
+import com.orlove101.android.casersapp.utils.FIREBASE_DB_REF
 import com.orlove101.android.casersapp.utils.PREFETCH_DISTANCE
 import com.orlove101.android.casersapp.utils.QUERY_PAGE_SIZE
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
+import com.orlove101.android.casersapp.utils.mapToDbCar
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class CarsRepositoryImpl @Inject constructor(
-    private val db: CarsDatabase,
-    private val api: CarsApi
-) {
-    private val database = Firebase.database("https://casersapp-default-rtdb.europe-west1.firebasedatabase.app/")
+    private val roomDatabase: CarsDatabase,
+): CarsRepository {
+    private val firebaseDatabase = Firebase.database(FIREBASE_DB_REF)
+    private var currentParsedCarsDataSource: ParsedCarsPageSource? = null
 
-    suspend fun upsert(car: Car): Long =
-        db.getCarsDao().upsert(car)
+    init {
+        firebaseDatabase.setPersistenceEnabled(true)
+    }
 
-    suspend fun deleteCar(car: Car) =
-        db.getCarsDao().deleteCar(car)
+    override fun refreshPageSource() {
+        currentParsedCarsDataSource?.invalidate()
+    }
 
-    fun searchForWaitingCars(
-        queryByCarNumber: String,
-        fromNodeId: String?,
-        carsPerPage: Int = QUERY_PAGE_SIZE,
-        onDataChanged: (DataSnapshot) -> Unit,
+    override suspend fun upsert(car: CarDomain): Long =
+        roomDatabase.getCarsDao().upsert(car.mapToDbCar())
+
+    override suspend fun deleteCar(car: CarDomain) =
+        roomDatabase.getCarsDao().deleteCar(car.mapToDbCar())
+
+    override fun getParsedCars() = Pager<Int, CarDomain>(
+        PagingConfig(
+            pageSize = QUERY_PAGE_SIZE,
+            initialLoadSize = QUERY_PAGE_SIZE,
+            prefetchDistance = PREFETCH_DISTANCE
+        )
     ) {
-        var searchCarsRef = database
-            .getReference("cars")
-            .orderByKey()
-            .limitToFirst(carsPerPage)
-
-
-        fromNodeId?.let {
-            Log.d(TAG, "searchForWaitingCars: start after $it")
-            searchCarsRef = searchCarsRef.startAfter(it)
+        ParsedCarsPageSource(db = roomDatabase).also {
+            currentParsedCarsDataSource = it
         }
-        searchCarsRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                onDataChanged(snapshot)
-            }
+    }.flow
 
-            override fun onCancelled(error: DatabaseError) {
-                Log.w(TAG, "waitingCars:onCancelled", error.toException())
-            }
-        })
+    override fun deleteCarFromApi(car: CarDomain) {
+        firebaseDatabase
+            .getReference("cars")
+            .orderByChild("uuid")
+            .equalTo(car.uuid)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    snapshot.children.forEach { dataSnapshot ->
+                        dataSnapshot.key?.let { valueKey ->
+                                firebaseDatabase
+                                    .getReference("cars")
+                                    .child(valueKey)
+                                    .removeValue()
+                        }
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w(TAG, "waitingCars:onCancelled", error.toException())
+                }
+            })
+    }
+
+    override fun searchForWaitingCars(
+        fromNodeId: String?,
+        carsPerPage: Int,
+        countCarsInApi: (Long) -> Unit,
+        onDataChanged: (DataSnapshot) -> Unit
+    ) {
+        val carsRef = firebaseDatabase.getReference("cars")
+        val searchRef = fromNodeId?.let { carsRef.orderByKey().startAfter(it) } ?: carsRef
+        val countWaitingRef = carsRef.orderByChild("waiting").equalTo(true)
+
+        countWaitingRef
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    countCarsInApi(snapshot.childrenCount)
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w(TAG, "waitingCars:onCancelled", error.toException())
+                }
+            })
+
+        searchRef
+            .limitToFirst(carsPerPage)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    onDataChanged(snapshot)
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w(TAG, "waitingCars:onCancelled", error.toException())
+                }
+            })
     }
 }
 

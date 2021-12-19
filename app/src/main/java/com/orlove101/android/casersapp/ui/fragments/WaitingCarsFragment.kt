@@ -2,7 +2,6 @@ package com.orlove101.android.casersapp.ui.fragments
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -12,39 +11,30 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
-import androidx.core.view.isVisible
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.paging.CombinedLoadStates
-import androidx.paging.LoadState
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.Text
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.android.material.snackbar.Snackbar
 import com.orlove101.android.casersapp.R
 import com.orlove101.android.casersapp.databinding.FragmentWaitingCarsBinding
-import com.orlove101.android.casersapp.ui.adapters.CarsAdapter
+import com.orlove101.android.casersapp.ui.adapters.WaitingCarsAdapter
 import com.orlove101.android.casersapp.ui.viewmodels.WaitingCarsViewModel
-import com.orlove101.android.casersapp.utils.CropImageContract
-import com.orlove101.android.casersapp.utils.MIMETYPE_IMAGES
-import com.orlove101.android.casersapp.utils.SEARCH_NEWS_TIME_DELAY
-import com.orlove101.android.casersapp.utils.autoCleared
+import com.orlove101.android.casersapp.utils.*
+import com.orlove101.android.casersapp.utils.contracts.CropImageContract
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.onEach
+
+import android.widget.EditText
 
 @AndroidEntryPoint
 class WaitingCarsFragment: Fragment() {
     private var binding by autoCleared<FragmentWaitingCarsBinding>()
     private val viewModel: WaitingCarsViewModel by viewModels()
-    private val carsAdapter by lazy(LazyThreadSafetyMode.NONE) { CarsAdapter() }
+    private val carsAdapter by lazy(LazyThreadSafetyMode.NONE) { WaitingCarsAdapter(requireContext()) }
     private val cropResultLauncher = registerForActivityResult(CropImageContract()) { uri ->
         viewModel.handleImageResult(uri, requireContext())
     }
@@ -58,7 +48,9 @@ class WaitingCarsFragment: Fragment() {
                 )
             }
         }
+
     private var dataLoading = false
+    private var isLastPage = false
 
     @ExperimentalCoroutinesApi
     override fun onCreateView(
@@ -68,28 +60,82 @@ class WaitingCarsFragment: Fragment() {
     ): View {
         binding = FragmentWaitingCarsBinding.inflate(inflater, container, false)
 
+        viewModel.setUpWaitingCarsSync(requireContext())
+
         setupRecyclerView()
 
         setupSearch()
 
         lifecycleScope.launchWhenStarted {
-            viewModel.cars.collectLatest { response ->
-                // not submit
-                carsAdapter.differ.submitList(response.toList())
-                dataLoading = false
-                Log.d(TAG, "onCreateView: listSubmitted")
+            viewModel.plomb.collect { response ->
+                when (response) {
+                    is Resource.Error -> {
+                        response.message?.let { message ->
+                            showSnackbarOnParsingFail(message)
+                        }
+                    }
+                    is Resource.Success -> {
+                        response.data?.let { message ->
+                            if (viewModel.allPlombParsed()) {
+                                carsAdapter.differ.apply {
+                                    val newList = ArrayList(this.currentList)
+
+                                    newList.remove(viewModel.currentCar)
+                                    submitList(newList)
+                                }
+                                showToast(message)
+                            } else {
+                                showToast(message)
+                                cropResultLauncher.launch(MIMETYPE_IMAGES)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        lifecycleScope.launchWhenStarted {
+            viewModel.cars.collect { response ->
+                when (response) {
+                    is Resource.Error -> {
+                        hideProgressBar()
+                        response.message?.let { message ->
+                            Log.e(TAG, getString(R.string.an_error_occured) + message)
+                        }
+                    }
+                    is Resource.Loading -> {
+                        showProgressBar()
+                    }
+                    is Resource.Success -> {
+                        response.data?.let { carsResponse ->
+                            hideProgressBar()
+                            carsAdapter.differ.submitList(carsResponse.toList())
+                            isLastPage = viewModel.carsInApiQuantity == carsResponse.size.toLong()
+                            if (isLastPage) {
+                                binding.rvWaitingCars.setPadding(0,0,0,0)
+                            }
+                        }
+                    }
+                }
             }
         }
 
         lifecycleScope.launchWhenCreated {
-            viewModel.query.onEach {
+            viewModel.query.collect {
                 updateSearchQuery(it)
-                Log.d(TAG, "onCreateView: query $it")
             }
-            // TODO check if it run after screen rotation
         }
 
-        carsEventHandler()
+        carsAdapter.setOnLetCarGoButtonClickListener { car ->
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                viewModel.startParseNewCar(car)
+                cropResultLauncher.launch(MIMETYPE_IMAGES)
+            } else {
+                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
 
         return binding.root
     }
@@ -101,19 +147,11 @@ class WaitingCarsFragment: Fragment() {
             job?.cancel()
             job = lifecycleScope.launch {
                 delay(SEARCH_NEWS_TIME_DELAY)
-                editable?.let {
-                    if(editable.toString().isNotEmpty()) {
-                        viewModel.setQuery(editable.toString())
-
-                        if (!dataLoading) {
-                            dataLoading = true
-                            viewModel.searchWaitingCars(
-                                editable.toString(),
-                                isNewQuery = true
-                            )
-                        }
+                    viewModel.setQuery(editable.toString())
+                    if (!dataLoading) {
+                        dataLoading = true
+                        viewModel.searchWaitingCars(isNewQuery = true)
                     }
-                }
             }
         }
     }
@@ -121,20 +159,30 @@ class WaitingCarsFragment: Fragment() {
     private val scrollListener = object : RecyclerView.OnScrollListener() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             super.onScrolled(recyclerView, dx, dy)
-            if (dy > 0) { // check for scroll down
-                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-                val visibleItemCount = layoutManager.childCount
-                val totalItemCount = layoutManager.itemCount
-                val pastVisiblesItems = layoutManager.findFirstVisibleItemPosition()
+            val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+            val visibleItemCount = layoutManager.childCount
+            val totalItemCount = layoutManager.itemCount
+            val pastVisiblesItems = layoutManager.findFirstVisibleItemPosition()
+            val isAtLastItem = (visibleItemCount + pastVisiblesItems) >= totalItemCount
+            val isScrolledDown = dy > 0
+            val shouldPaginate = !dataLoading && isAtLastItem && isScrolledDown && !isLastPage
 
-                if (!dataLoading) {
-                    if ((visibleItemCount + pastVisiblesItems) >= totalItemCount) {
-                        dataLoading = true
-                        viewModel.searchWaitingCars()
-                    }
-                }
+            if (shouldPaginate) {
+                viewModel.searchWaitingCars()
+            } else if (!isScrolledDown && isAtLastItem) {
+                hideProgressBar()
             }
         }
+    }
+
+    private fun hideProgressBar() {
+        binding.paginationProgressBar.visibility = View.INVISIBLE
+        dataLoading = false
+    }
+
+    private fun showProgressBar() {
+        binding.paginationProgressBar.visibility = View.VISIBLE
+        dataLoading = true
     }
 
     private fun updateSearchQuery(searchQuery: String) {
@@ -151,26 +199,6 @@ class WaitingCarsFragment: Fragment() {
             layoutManager = LinearLayoutManager(activity)
             addOnScrollListener(scrollListener)
         }
-//        carsAdapter.addLoadStateListener { state: CombinedLoadStates ->
-//            binding.apply {
-//                rvWaitingCars.isVisible = state.refresh != LoadState.Loading
-//                paginationProgressBar.isVisible = state.refresh == LoadState.Loading
-//            }
-//        }
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-        binding.root.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED
-            ) {
-                cropResultLauncher.launch(MIMETYPE_IMAGES)
-            } else {
-                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
-            }
-        }
     }
 
     private fun showRationalDialog(
@@ -179,6 +207,7 @@ class WaitingCarsFragment: Fragment() {
         permission: String
     ) {
         val builder: AlertDialog.Builder = AlertDialog.Builder(requireContext())
+
         builder.setTitle(title)
             .setMessage(message)
             .setPositiveButton(getString(R.string.ok)) { _, _ ->
@@ -187,22 +216,40 @@ class WaitingCarsFragment: Fragment() {
         builder.create().show()
     }
 
-    private fun carsEventHandler() {
-        viewLifecycleOwner.lifecycleScope.launchWhenStarted {
-            viewModel.carsEvent.collect { event ->
-                when (event) {
-                    is WaitingCarsViewModel.WaitingCarsEvents.ShowToast -> {
-                        val text = event.text ?: event.textId?.let { getString(it) } ?: ""
+    private fun showTypeInPlombNumberDialog() {
+        val alert = AlertDialog.Builder(requireContext())
+        val edittext = EditText(requireContext())
 
-                        showToast(text)
-                    }
-                }
-            }
+        alert.setMessage(getString(R.string.type_in_plomb_num_msg))
+        alert.setTitle(getString(R.string.type_in_plomb_num_title))
+        alert.setView(edittext)
+        alert.setPositiveButton(
+            getString(R.string.type_in_lomb_confirm)
+        ) { _, _ ->
+            val enteredPlombNumber = edittext.text.toString()
+
+            viewModel.processPlombNumber(enteredPlombNumber, requireContext())
         }
+        alert.setNegativeButton(
+            getString(R.string.deny_type_in_plomb)
+        ) { _, _ ->
+            // do nothing
+        }
+        alert.show()
     }
 
     private fun showToast(message: String) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showSnackbarOnParsingFail(message: String) {
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
+            .apply {
+                setAction(getString(R.string.type_in_manually)) {
+                    showTypeInPlombNumberDialog()
+                }
+                show()
+            }
     }
 }
 

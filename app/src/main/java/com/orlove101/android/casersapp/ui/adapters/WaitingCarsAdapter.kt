@@ -1,15 +1,18 @@
 package com.orlove101.android.casersapp.ui.adapters
 
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.AsyncListDiffer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import com.orlove101.android.casersapp.data.models.Car
+import com.orlove101.android.casersapp.R
 import com.orlove101.android.casersapp.databinding.ItemCarPreviewBinding
+import com.orlove101.android.casersapp.domain.models.CarDomain
 
-class CarsAdapter: RecyclerView.Adapter<CarsAdapter.CarsViewHolder>() {
+class WaitingCarsAdapter(
+    private val context: Context
+): RecyclerView.Adapter<WaitingCarsAdapter.CarsViewHolder>() {
 
     override fun getItemCount(): Int {
         return differ.currentList.size
@@ -33,14 +36,15 @@ class CarsAdapter: RecyclerView.Adapter<CarsAdapter.CarsViewHolder>() {
     inner class CarsViewHolder(private val binding: ItemCarPreviewBinding)
         : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(item: Car?) {
+        fun bind(item: CarDomain?) {
             item?.let {
                 binding.apply {
-                    tvCarNumber.text = item.carNumber
+                    tvCarNumber.text = context.getString(R.string.car_number_template, item.carNumber)
                     tvCargoDescription.text = item.cargoDescription
-                    tvReadyFrom.text = item.startWaitingAt
-                    root.setOnClickListener {
-                        onItemClickListener?.let {
+                    tvReadyFrom.text = context.getString(R.string.car_start_waiting_template, item.startWaitingAt)
+                    tvPlombQnt.text = context.getString(R.string.plomb_quantity, item.plombQuantity)
+                    bnLetCarGo.setOnClickListener {
+                        onLetCarGoClickListener?.let {
                             it(item)
                         }
                     }
@@ -49,22 +53,22 @@ class CarsAdapter: RecyclerView.Adapter<CarsAdapter.CarsViewHolder>() {
         }
     }
 
-    private val differCallback = object : DiffUtil.ItemCallback<Car>() {
-        override fun areItemsTheSame(oldItem: Car, newItem: Car): Boolean {
+    private val differCallback = object : DiffUtil.ItemCallback<CarDomain>() {
+        override fun areItemsTheSame(oldItem: CarDomain, newItem: CarDomain): Boolean {
             return oldItem.uuid == newItem.uuid
         }
 
-        override fun areContentsTheSame(oldItem: Car, newItem: Car): Boolean {
+        override fun areContentsTheSame(oldItem: CarDomain, newItem: CarDomain): Boolean {
             return oldItem == newItem
         }
     }
 
     val differ = AsyncListDiffer(this, differCallback)
 
-    private var onItemClickListener: ((Car) -> Unit)? = null
+    private var onLetCarGoClickListener: ((CarDomain) -> Unit)? = null
 
-    fun setOnItemClickListener(listener: (Car) -> Unit) {
-        onItemClickListener = listener
+    fun setOnLetCarGoButtonClickListener(listener: (CarDomain) -> Unit) {
+        onLetCarGoClickListener = listener
     }
 }
 
