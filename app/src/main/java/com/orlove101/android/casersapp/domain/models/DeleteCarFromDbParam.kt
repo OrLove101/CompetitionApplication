@@ -1,6 +1,5 @@
 package com.orlove101.android.casersapp.domain.models
 
-import com.orlove101.android.casersapp.domain.models.CarDomain
 import com.orlove101.android.casersapp.ui.viewmodels.ParsedCarsViewModel
 import kotlinx.coroutines.channels.Channel
 
