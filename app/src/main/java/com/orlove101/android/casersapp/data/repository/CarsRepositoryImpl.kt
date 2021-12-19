@@ -12,10 +12,7 @@ import com.orlove101.android.casersapp.data.db.CarsDatabase
 import com.orlove101.android.casersapp.data.page_sources.ParsedCarsPageSource
 import com.orlove101.android.casersapp.domain.models.CarDomain
 import com.orlove101.android.casersapp.domain.repository.CarsRepository
-import com.orlove101.android.casersapp.utils.FIREBASE_DB_REF
-import com.orlove101.android.casersapp.utils.PREFETCH_DISTANCE
-import com.orlove101.android.casersapp.utils.QUERY_PAGE_SIZE
-import com.orlove101.android.casersapp.utils.mapToDbCar
+import com.orlove101.android.casersapp.utils.*
 import javax.inject.Inject
 import javax.inject.Singleton
 

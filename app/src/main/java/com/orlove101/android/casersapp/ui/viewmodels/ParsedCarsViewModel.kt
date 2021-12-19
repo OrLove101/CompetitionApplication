@@ -16,7 +16,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ParsedCarsViewModel @Inject constructor(
-    val parsedCarsUseCases: ParsedCarsUseCases
+    private val parsedCarsUseCases: ParsedCarsUseCases
 ): ViewModel() {
     private val carsEventsChannel = Channel<ParsedCarsEvents>()
     val carsEvent = carsEventsChannel.receiveAsFlow()
